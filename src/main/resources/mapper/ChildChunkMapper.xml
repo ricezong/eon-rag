@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.kong.eon.rag.repo.mapper.ChildChunkMapper">
+
+    <!-- 三路召回公共列（不含 embedding，减小传输量） -->
+    <sql id="retrievalColumns">
+        c.id, c.parent_id, c.document_id, c.seq, c.content, c.token_count, c.meta
+    </sql>
+
+    <!-- 知识库过滤下推子查询：kbIds 为空时不加过滤 -->
+    <sql id="kbFilter">
+        <if test="kbIds != null and kbIds.size() > 0">
+            AND c.document_id IN (
+                SELECT dkb.document_id
+                FROM document_knowledge_bases dkb
+                WHERE dkb.knowledge_base_id IN
+                <foreach collection="kbIds" item="kbId" open="(" separator="," close=")">
+                    #{kbId}
+                </foreach>
+            )
+        </if>
+    </sql>
+
+    <!-- 只有已完成向量化的文档参与检索；embedding 为空的行一律排除 -->
+    <sql id="indexedFilter">
+        AND c.embedding IS NOT NULL
+        AND EXISTS (
+            SELECT 1 FROM documents d
+            WHERE d.id = c.document_id
+              AND d.status = 'COMPLETED'
+        )
+    </sql>
+
+    <!-- 通道 1：向量余弦检索（HNSW 余弦距离 <=>，ASC 升序） -->
+    <select id="searchByVector" resultType="cn.kong.eon.rag.repo.entity.ChildChunk">
+        SELECT
+        <include refid="retrievalColumns"/>,
+        1 - (c.embedding &lt;=&gt; #{queryVector}::vector) AS raw_score
+        FROM child_chunks c
+        WHERE 1 = 1
+        <include refid="indexedFilter"/>
+        <include refid="kbFilter"/>
+        ORDER BY c.embedding &lt;=&gt; #{queryVector}::vector ASC
+        LIMIT #{topK}
+    </select>
+
+    <!-- 通道 2：中文全文检索。websearch_to_tsquery 防问号/括号等特殊字符解析报错 -->
+    <select id="searchByFulltext" resultType="cn.kong.eon.rag.repo.entity.ChildChunk">
+        SELECT
+        <include refid="retrievalColumns"/>,
+        ts_rank_cd(c.search_content, q.query) AS raw_score
+        FROM child_chunks c,
+             websearch_to_tsquery('zh_cfg', #{rawQuery}) q(query)
+        WHERE c.search_content @@ q.query
+        <include refid="indexedFilter"/>
+        <include refid="kbFilter"/>
+        ORDER BY raw_score DESC
+        LIMIT #{topK}
+    </select>
+
+    <!-- 通道 3 前置：同事务内调低相似度阈值（SET LOCAL 仅当前事务生效）。
+         SET 属 utility 命令不支持扩展协议参数绑定，必须用 ${} 内插；
+         阈值取自自有配置（double），无注入风险 -->
+    <update id="setFuzzyThresholdLocal">
+        SET LOCAL pg_trgm.similarity_threshold = ${threshold}
+    </update>
+
+    <!-- 通道 3：Trigram 模糊匹配。WHERE 必须用 % 运算符命中 gin_trgm_ops 索引，
+         若写 WHERE similarity(...) >= t 会退化为全表扫描 -->
+    <select id="searchByFuzzy" resultType="cn.kong.eon.rag.repo.entity.ChildChunk">
+        SELECT
+        <include refid="retrievalColumns"/>,
+        similarity(c.content, #{rawQuery}) AS raw_score
+        FROM child_chunks c
+        WHERE c.content % #{rawQuery}
+        <include refid="indexedFilter"/>
+        <include refid="kbFilter"/>
+        ORDER BY c.content &lt;-&gt; #{rawQuery} ASC
+        LIMIT #{topK}
+    </select>
+
+    <!-- 批量写入；embedding 可为 NULL（等待手动向量化） -->
+    <insert id="insertBatch">
+        INSERT INTO child_chunks
+            (id, parent_id, document_id, seq, content, context_prefix, embedding, token_count, meta)
+        VALUES
+        <foreach collection="list" item="c" separator=",">
+            (#{c.id}, #{c.parentId}, #{c.documentId}, #{c.seq}, #{c.content},
+             #{c.contextPrefix}, #{c.embedding}::vector, #{c.tokenCount}, #{c.meta}::jsonb)
+        </foreach>
+    </insert>
+
+    <insert id="insert">
+        INSERT INTO child_chunks
+            (id, parent_id, document_id, seq, content, context_prefix, embedding, token_count, meta)
+        VALUES
+            (#{id}, #{parentId}, #{documentId}, #{seq}, #{content},
+             #{contextPrefix}, #{embedding}::vector, #{tokenCount}, #{meta}::jsonb)
+    </insert>
+
+    <select id="selectUnindexedByDocumentId" resultType="cn.kong.eon.rag.repo.entity.ChildChunk">
+        SELECT c.id, c.parent_id, c.document_id, c.seq, c.content, c.context_prefix,
+               c.token_count, c.meta, c.created_at
+        FROM child_chunks c
+        WHERE c.document_id = #{documentId}
+          AND c.embedding IS NULL
+        ORDER BY c.parent_id, c.seq
+    </select>
+
+    <update id="updateEmbedding">
+        UPDATE child_chunks
+        SET embedding = #{embedding}::vector
+        WHERE id = #{id}
+    </update>
+
+    <select id="countUnindexedByDocumentId" resultType="long">
+        SELECT count(*) FROM child_chunks
+        WHERE document_id = #{documentId}
+          AND embedding IS NULL
+    </select>
+
+    <!-- 子块浏览列（含 context_prefix，不含 embedding） -->
+    <select id="selectByParentId" resultType="cn.kong.eon.rag.repo.entity.ChildChunk">
+        SELECT c.id, c.parent_id, c.document_id, c.seq, c.content, c.context_prefix,
+               c.token_count, c.meta, c.created_at
+        FROM child_chunks c
+        WHERE c.parent_id = #{parentId}
+        ORDER BY c.seq ASC
+    </select>
+
+    <select id="selectById" resultType="cn.kong.eon.rag.repo.entity.ChildChunk">
+        SELECT c.id, c.parent_id, c.document_id, c.seq, c.content, c.context_prefix,
+               c.token_count, c.meta, c.created_at
+        FROM child_chunks c
+        WHERE c.id = #{id}
+    </select>
+
+    <update id="updateContentIfUnchanged">
+        UPDATE child_chunks
+        SET content = #{content},
+            context_prefix = #{contextPrefix},
+            embedding = #{embedding}::vector,
+            token_count = #{tokenCount},
+            meta = #{meta}::jsonb
+        WHERE id = #{id}
+          AND content = #{oldContent}
+    </update>
+
+    <update id="updateSeq">
+        UPDATE child_chunks SET seq = #{seq} WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById" parameterType="java.util.UUID">
+        DELETE FROM child_chunks WHERE id = #{id}
+    </delete>
+
+    <delete id="deleteByParentId" parameterType="java.util.UUID">
+        DELETE FROM child_chunks WHERE parent_id = #{parentId}
+    </delete>
+
+    <select id="countByDocumentId" resultType="long">
+        SELECT count(*) FROM child_chunks WHERE document_id = #{documentId}
+    </select>
+
+    <!-- 降级窗口：按 UNIQUE(parent_id, seq) B-Tree 加载邻接子块 -->
+    <select id="selectAdjacent" resultType="cn.kong.eon.rag.repo.entity.ChildChunk">
+        SELECT
+        <include refid="retrievalColumns"/>
+        FROM child_chunks c
+        WHERE c.parent_id = #{parentId}
+          AND c.seq BETWEEN #{centerSeq} - #{before} AND #{centerSeq} + #{after}
+        ORDER BY c.seq ASC
+    </select>
+
+    <delete id="deleteByDocumentId" parameterType="java.util.UUID">
+        DELETE FROM child_chunks WHERE document_id = #{documentId}
+    </delete>
+
+</mapper>

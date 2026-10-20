@@ -1,0 +1,138 @@
+spring:
+  application:
+    name: eon-rag
+
+  # 数据源
+  datasource:
+    url: ${KB_DB_URL:jdbc:postgresql://127.0.0.1:15432/eon_rag}
+    username: ${KB_DB_USERNAME:postgres}
+    password: ${KB_DB_PASSWORD:}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 5000
+
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+
+  # Spring AI：OpenAI 兼容协议对接小米 MiMo，仅供 Chat 生成使用
+  ai:
+    openai:
+      api-key: ${DEEPSEEK_API_KEY:}
+      # Spring AI 会自行拼接 /v1/chat/completions，此处不可再带 /v1，否则产生 /v1/v1/ 路径
+      base-url: ${DEEPSEEK_BASE_URL:https://api.xiaomimimo.com}
+      chat:
+        options:
+          model: mimo-v2.6-flash
+          temperature: 0.2
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+  # UUID 主键与外键参数的类型处理器
+  type-handlers-package: cn.kong.eon.rag.typehandler
+
+server:
+  port: 8080
+
+# 日志：默认 INFO；排查问题时用 --logging.level.cn.kong.eon.rag=DEBUG 临时开启
+logging:
+  level:
+    cn.kong.eon.rag: ${KB_LOG_LEVEL:INFO}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: ${KB_ACTUATOR_EXPOSURE:health}
+
+# ============================================================================
+# eon-rag 业务参数基线
+# ============================================================================
+kb:
+  # 百炼向量化
+  embedding:
+    api-key: ${DASHSCOPE_EMBEDDING_API_KEY:}
+    base-url: ${DASHSCOPE_EMBEDDING_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode}
+    model: text-embedding-v4
+    dimensions: 1024
+    # 百炼 text-embedding-v4 单批硬性上限 10，不可调大
+    batch-size: 10
+
+  # 百炼重排（端点前缀 /compatible-api/v1，与 Embedding 不可混用）
+  rerank:
+    api-key: ${DASHSCOPE_RERANK_API_KEY:}
+    base-url: ${DASHSCOPE_RERANK_BASE_URL:https://dashscope.aliyuncs.com/compatible-api/v1}
+    model: qwen3-rerank
+
+  parse:
+    # 解析路由：AUTO（白名单分流）/ LOCAL（强制本地）/ CLOUD（强制云端）
+    mode: ${KB_PARSE_MODE:AUTO}
+    # AUTO 模式优先分流云端的格式白名单
+    cloud-types: pdf,doc,docx,ppt,pptx
+    cloud:
+      # LlamaParse；默认关闭，启用后才装配云端客户端（需 LLAMA_CLOUD_API_KEY）
+      enabled: ${LLAMA_CLOUD_ENABLED:false}
+      api-key: ${LLAMA_CLOUD_API_KEY:}
+      base-url: ${LLAMA_CLOUD_BASE_URL:https://api.cloud.llamaindex.ai}
+      # 解析档位：fast / cost_effective / agentic / agentic_plus
+      tier: ${LLAMA_CLOUD_TIER:cost_effective}
+      # 解析接口版本：latest 或具体日期版本
+      version: ${LLAMA_CLOUD_VERSION:latest}
+    max-file-size: 52428800
+    # 疑似扫描件阈值：整篇有效字符 < 50（PDF 另有页均 < 10 校验）
+    min-text-chars: 50
+
+  chunk:
+    parent:
+      max-tokens: 1200
+      min-tokens: 200
+      heading-level: 2
+    child:
+      max-tokens: 320
+      # 人工合并允许的更大子块上限，普通编辑/拆分仍使用 max-tokens
+      merge-max-tokens: 640
+      overlap-tokens: 48
+
+  ingest:
+    temp-dir: ${java.io.tmpdir}/eon-rag
+
+  search:
+    vector-top-k: 20
+    fulltext-top-k: 20
+    fuzzy-top-k: 10
+    fuzzy-similarity-threshold: 0.2
+    rrf-k: 60
+    # RRF 融合后送 Rerank 的候选宽度
+    rrf-top-n: 50
+    rerank-top-n: 15
+    parent-hit-bonus-weight: 0.05
+    hyde-enabled: false
+
+  chat:
+    max-context-tokens: 6000
+    output-reserve-tokens: 1000
+    # SSE 流最长持续时间（毫秒）：到时发送 error 事件并中止生成
+    sse-timeout-ms: ${KB_CHAT_SSE_TIMEOUT_MS:120000}
+
+  context-enrichment:
+    enabled: ${KB_CONTEXT_ENRICHMENT_ENABLED:false}
+
+  security:
+    # 非空时强制校验 X-API-Key 请求头（OPTIONS 预检自动放行）
+    api-key: ${KB_API_KEY:}
+
+  # 线程池：摄入与检索分池
+  thread-pool:
+    ingest:
+      core: 2
+      max: 4
+      queue: 50
+    search:
+      core: 8
+      max: 16
+      queue: 100

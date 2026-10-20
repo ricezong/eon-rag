@@ -1,0 +1,42 @@
+{
+  "name": "eon-rag-web",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "packageManager": "pnpm@11.28.5",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "vue-tsc --noEmit",
+    "mock": "node mock/server.mjs",
+    "shot": "node scripts/shot.mjs",
+    "probe:chat": "node scripts/probe-chat.mjs",
+    "test:e2e": "node scripts/e2e-real.mjs",
+    "test:crud": "node scripts/e2e-crud.mjs",
+    "test:interactions": "node scripts/e2e-interactions.mjs",
+    "test:chunks": "node scripts/e2e-chunks-real.mjs",
+    "test:manual": "node scripts/e2e-manual-index.mjs"
+  },
+  "dependencies": {
+    "@lucide/vue": "^1.59.0",
+    "@tanstack/vue-query": "^5.104.4",
+    "dompurify": "^3.4.17",
+    "idb-keyval": "^6.3.0",
+    "markdown-it": "^14.3.3",
+    "pinia": "^3.0.4",
+    "vue": "^3.5.44",
+    "vue-router": "^4.6.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/markdown-it": "^14.2.0",
+    "@types/node": "^24.19.2",
+    "@vitejs/plugin-vue": "^6.0.10",
+    "playwright-core": "^1.64.1",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.7",
+    "vue-tsc": "^3.3.13"
+  }
+}

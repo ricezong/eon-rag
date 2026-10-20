@@ -1,0 +1,6 @@
+frontend
+target
+.idea
+docs
+.git
+*.md

@@ -1,0 +1,7 @@
+node_modules
+dist
+shots
+.vite
+.playwright
+mock
+scripts

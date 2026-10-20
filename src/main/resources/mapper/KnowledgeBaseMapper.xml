@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.kong.eon.rag.repo.mapper.KnowledgeBaseMapper">
+
+    <insert id="insert" parameterType="cn.kong.eon.rag.repo.entity.KnowledgeBase"
+            useGeneratedKeys="false">
+        INSERT INTO knowledge_bases (id, name, description, color)
+        VALUES (#{id}, #{name}, #{description}, #{color})
+    </insert>
+
+    <select id="selectById" resultType="cn.kong.eon.rag.repo.entity.KnowledgeBase">
+        SELECT kb.id, kb.name, kb.description, kb.color, kb.created_at, kb.updated_at,
+               (SELECT count(*) FROM document_knowledge_bases dkb
+                WHERE dkb.knowledge_base_id = kb.id) AS document_count
+        FROM knowledge_bases kb
+        WHERE kb.id = #{id}
+    </select>
+
+    <select id="selectAll" resultType="cn.kong.eon.rag.repo.entity.KnowledgeBase">
+        SELECT kb.id, kb.name, kb.description, kb.color, kb.created_at, kb.updated_at,
+               (SELECT count(*) FROM document_knowledge_bases dkb
+                WHERE dkb.knowledge_base_id = kb.id) AS document_count
+        FROM knowledge_bases kb
+        ORDER BY kb.created_at ASC
+    </select>
+
+    <select id="existsByName" resultType="boolean">
+        SELECT EXISTS(SELECT 1 FROM knowledge_bases WHERE name = #{name})
+    </select>
+
+    <update id="update" parameterType="cn.kong.eon.rag.repo.entity.KnowledgeBase">
+        UPDATE knowledge_bases
+        SET name = #{name}, description = #{description}, color = #{color}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById" parameterType="java.util.UUID">
+        DELETE FROM knowledge_bases WHERE id = #{id}
+    </delete>
+
+    <insert id="bindDocument">
+        INSERT INTO document_knowledge_bases (document_id, knowledge_base_id)
+        VALUES
+        <foreach collection="knowledgeBaseIds" item="kbId" separator=",">
+            (#{documentId}, #{kbId})
+        </foreach>
+        ON CONFLICT DO NOTHING
+    </insert>
+
+    <delete id="unbindDocument">
+        DELETE FROM document_knowledge_bases
+        WHERE document_id = #{documentId}
+          AND knowledge_base_id = #{knowledgeBaseId}
+    </delete>
+
+    <select id="selectAllBindings" resultType="cn.kong.eon.rag.repo.entity.DocumentKbBinding">
+        SELECT document_id, knowledge_base_id
+        FROM document_knowledge_bases
+    </select>
+
+    <select id="selectByDocumentId" resultType="cn.kong.eon.rag.repo.entity.KnowledgeBase">
+        SELECT kb.id, kb.name, kb.description, kb.color, kb.created_at, kb.updated_at
+        FROM knowledge_bases kb
+        JOIN document_knowledge_bases dkb ON dkb.knowledge_base_id = kb.id
+        WHERE dkb.document_id = #{documentId}
+        ORDER BY kb.created_at ASC
+    </select>
+    <select id="selectDocumentsByKbId" resultType="cn.kong.eon.rag.repo.entity.DocumentEntity">
+        SELECT d.id, d.file_name, d.file_type, d.file_size, d.status, d.parse_mode,
+               d.error_message, d.parent_count, d.child_count, d.created_at, d.updated_at
+        FROM documents d
+        JOIN document_knowledge_bases dkb ON dkb.document_id = d.id
+        WHERE dkb.knowledge_base_id = #{kbId}
+        ORDER BY d.created_at DESC
+    </select>
+
+</mapper>

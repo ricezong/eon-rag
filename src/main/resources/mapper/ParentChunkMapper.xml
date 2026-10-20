@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.kong.eon.rag.repo.mapper.ParentChunkMapper">
+
+    <insert id="insertBatch">
+        INSERT INTO parent_chunks (id, document_id, seq, title, content, token_count, meta)
+        VALUES
+        <foreach collection="list" item="p" separator=",">
+            (#{p.id}, #{p.documentId}, #{p.seq}, #{p.title}, #{p.content},
+             #{p.tokenCount}, #{p.meta}::jsonb)
+        </foreach>
+    </insert>
+
+    <select id="selectByIds" resultType="cn.kong.eon.rag.repo.entity.ParentChunk">
+        SELECT id, document_id, seq, title, content, token_count, meta, created_at
+        FROM parent_chunks
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
+    <select id="selectById" resultType="cn.kong.eon.rag.repo.entity.ParentChunk">
+        SELECT id, document_id, seq, title, content, token_count, meta, created_at
+        FROM parent_chunks
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectByDocumentId" resultType="cn.kong.eon.rag.repo.entity.ParentChunk">
+        SELECT id, document_id, seq, title, content, token_count, meta, created_at
+        FROM parent_chunks
+        WHERE document_id = #{documentId}
+        ORDER BY seq ASC
+    </select>
+
+    <select id="selectPageByDocumentId" resultType="cn.kong.eon.rag.repo.entity.ParentChunk">
+        SELECT id, document_id, seq, title, content, token_count, meta, created_at
+        FROM parent_chunks
+        WHERE document_id = #{documentId}
+        ORDER BY seq ASC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="countByDocumentId" resultType="long">
+        SELECT count(*) FROM parent_chunks WHERE document_id = #{documentId}
+    </select>
+
+    <update id="updateContentIfUnchanged">
+        UPDATE parent_chunks
+        SET title = #{title},
+            content = #{content},
+            token_count = #{tokenCount}
+        WHERE id = #{id}
+          AND content = #{oldContent}
+    </update>
+
+    <update id="updateSeq">
+        UPDATE parent_chunks SET seq = #{seq} WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById" parameterType="java.util.UUID">
+        DELETE FROM parent_chunks WHERE id = #{id}
+    </delete>
+
+    <delete id="deleteByDocumentId" parameterType="java.util.UUID">
+        DELETE FROM parent_chunks WHERE document_id = #{documentId}
+    </delete>
+
+</mapper>

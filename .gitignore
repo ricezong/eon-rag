@@ -1,0 +1,27 @@
+# 构建产物
+target/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.playwright/
+
+# 测试与调试产物
+frontend/shots/
+*.log
+
+# 编辑器与本地工具
+.idea/
+.vscode/
+.workbuddy/
+
+# 生图草稿（正式图在 docs/wechat-series/images/）
+vibe_images/
+
+# 内部文档，不随仓库公开
+docs/wechat-series-诊断报告.md
+docs/wechat-series/00-内部-写作规范与配图清单.md
+架构梳理报告.md
+
+# 系统文件
+.DS_Store
+Thumbs.db
