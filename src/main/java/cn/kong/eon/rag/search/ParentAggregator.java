@@ -133,8 +133,9 @@ public class ParentAggregator {
         StringBuilder sb = new StringBuilder();
         int tokens = 0;
         for (ChildChunk child : window) {
-            int t = child.getTokenCount() == 0
-                    ? estimateTokens(child.getContent()) : child.getTokenCount();
+            Integer counted = child.getTokenCount();
+            int t = counted == null || counted == 0
+                    ? estimateTokens(child.getContent()) : counted;
             if (tokens + t > remaining) {
                 break;
             }

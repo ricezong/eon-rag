@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 /**
@@ -21,6 +22,17 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleBiz(BizException e) {
         return ResponseEntity.status(statusOf(e.getErrorCode()))
                 .body(ApiResponse.error(e.getErrorCode().getCode(), e.getMessage()));
+    }
+
+    /** @Valid 校验失败：取第一条字段错误返回 400 */
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiResponse<Void>> handleInvalidBody(MethodArgumentNotValidException e) {
+        String detail = e.getBindingResult().getFieldErrors().stream()
+                .findFirst()
+                .map(error -> error.getField() + " " + error.getDefaultMessage())
+                .orElse("请求体不合法");
+        return ResponseEntity.badRequest()
+                .body(ApiResponse.error(ErrorCode.INVALID_REQUEST.getCode(), detail));
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
@@ -39,6 +51,7 @@ public class GlobalExceptionHandler {
     private HttpStatus statusOf(ErrorCode code) {
         return switch (code) {
             case UNAUTHORIZED -> HttpStatus.UNAUTHORIZED;
+            case INVALID_REQUEST -> HttpStatus.BAD_REQUEST;
             case FILE_TOO_LARGE -> HttpStatus.PAYLOAD_TOO_LARGE;
             case DOC_NOT_FOUND, KB_NOT_FOUND, PARENT_NOT_FOUND, CHUNK_NOT_FOUND -> HttpStatus.NOT_FOUND;
             case KB_NAME_EXISTS, DOC_NOT_EDITABLE, CHUNK_CONFLICT, INDEX_CONFLICT -> HttpStatus.CONFLICT;

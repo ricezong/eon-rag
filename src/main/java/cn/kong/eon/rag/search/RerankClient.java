@@ -100,8 +100,7 @@ public class RerankClient {
                 continue;
             }
             ChildChunk child = candidates.get(index);
-            child.setRawScore(item.path("relevance_score").asDouble(0.0));
-            ranked.add(child);
+            ranked.add(child.copyWithScore(item.path("relevance_score").asDouble(0.0)));
             if (ranked.size() >= topN) {
                 break;
             }

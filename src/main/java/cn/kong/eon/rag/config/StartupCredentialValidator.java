@@ -18,7 +18,7 @@ public class StartupCredentialValidator {
             KbEmbeddingProperties embedding,
             KbRerankProperties rerank,
             KbParseProperties parse) {
-        require(chatApiKey, "DEEPSEEK_API_KEY");
+        require(chatApiKey, "KB_CHAT_API_KEY");
         require(databasePassword, "KB_DB_PASSWORD");
         require(embedding.getApiKey(), "DASHSCOPE_EMBEDDING_API_KEY");
         require(rerank.getApiKey(), "DASHSCOPE_RERANK_API_KEY");

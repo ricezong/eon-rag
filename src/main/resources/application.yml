@@ -19,11 +19,12 @@ spring:
       max-request-size: 50MB
 
   # Spring AI：OpenAI 兼容协议对接小米 MiMo，仅供 Chat 生成使用
+  # OpenAI 兼容协议的对话生成模型，密钥与地址由 KB_CHAT_* 注入
   ai:
     openai:
-      api-key: ${DEEPSEEK_API_KEY:}
+      api-key: ${KB_CHAT_API_KEY:}
       # Spring AI 会自行拼接 /v1/chat/completions，此处不可再带 /v1，否则产生 /v1/v1/ 路径
-      base-url: ${DEEPSEEK_BASE_URL:https://api.xiaomimimo.com}
+      base-url: ${KB_CHAT_BASE_URL:https://api.xiaomimimo.com}
       chat:
         options:
           model: mimo-v2.6-flash

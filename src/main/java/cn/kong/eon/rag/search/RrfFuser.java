@@ -42,9 +42,8 @@ public class RrfFuser {
             if (result.size() >= topN) {
                 break;
             }
-            ChildChunk child = byId.get(entry.getKey());
-            child.setRawScore(entry.getValue());
-            result.add(child);
+            // 产出带分副本，不改动入参实体，避免副作用外溢到调用方持有的列表
+            result.add(byId.get(entry.getKey()).copyWithScore(entry.getValue()));
         }
         log.debug("rrf fused unique={} returned={} top={}", scores.size(), result.size(),
                 result.stream().limit(10)

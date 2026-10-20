@@ -109,4 +109,24 @@ public class ChildChunk {
     public void setRawScore(Double rawScore) {
         this.rawScore = rawScore;
     }
+
+    /**
+     * 带打分的副本。融合与重排只产出副本、不回写入参实体，
+     * 调用方持有的候选列表不会被检索链路悄悄改写。
+     */
+    public ChildChunk copyWithScore(double score) {
+        ChildChunk copy = new ChildChunk();
+        copy.id = this.id;
+        copy.parentId = this.parentId;
+        copy.documentId = this.documentId;
+        copy.seq = this.seq;
+        copy.content = this.content;
+        copy.contextPrefix = this.contextPrefix;
+        copy.embedding = this.embedding;
+        copy.tokenCount = this.tokenCount;
+        copy.meta = this.meta;
+        copy.createdAt = this.createdAt;
+        copy.rawScore = score;
+        return copy;
+    }
 }

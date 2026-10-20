@@ -20,6 +20,7 @@ public enum ErrorCode {
     KB_NOT_FOUND("KB_NOT_FOUND", "知识库不存在"),
     KB_NAME_EXISTS("KB_NAME_EXISTS", "知识库名称已存在"),
     UNAUTHORIZED("UNAUTHORIZED", "API Key 缺失或错误"),
+    INVALID_REQUEST("INVALID_REQUEST", "请求参数不合法"),
     CHAT_FAILED("CHAT_FAILED", "问答生成失败"),
     INTERNAL("INTERNAL", "系统内部错误");
 

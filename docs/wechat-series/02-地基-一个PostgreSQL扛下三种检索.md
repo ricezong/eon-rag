@@ -362,19 +362,19 @@ DELETE FROM documents WHERE id = '11111111-1111-1111-1111-111111111111';
 
 | 环境变量 | 去哪申请 | 干什么用 |
 | :--- | :--- | :--- |
-| `DEEPSEEK_API_KEY` | 小米 MiMo 开放平台 | 问答生成（Chat） |
+| `KB_CHAT_API_KEY` | 小米 MiMo 开放平台 | 问答生成（Chat） |
 | `DASHSCOPE_EMBEDDING_API_KEY` | 阿里云百炼 | 子块向量化 |
 | `DASHSCOPE_RERANK_API_KEY` | 阿里云百炼 | 检索结果重排 |
 | `KB_DB_PASSWORD` | 自己定 | 数据库密码，和上一步 `docker compose` 用的是同一个 |
 
-一个命名坑：`DEEPSEEK_API_KEY` 是历史遗留的名字，项目默认对接的是小米 MiMo（`base-url` 默认 `https://api.xiaomimimo.com`，模型 `mimo-v2.6-flash`）。别真去申请深度求散的 Key，会 401。想换别家就改 `DEEPSEEK_BASE_URL` 和模型名，只要是 OpenAI 兼容协议都行。
+`KB_CHAT_API_KEY` 对应对话生成模型。项目默认对接小米 MiMo（`base-url` 默认 `https://api.xiaomimimo.com`，模型 `mimo-v2.6-flash`）；想换别家就改 `KB_CHAT_BASE_URL` 和模型名，只要是 OpenAI 兼容协议都行。
 
 百炼的 Embedding 和 Rerank 是两个独立的 Key，端点前缀也不一样（`compatible-mode` vs `compatible-api/v1`），混用会 404，第 6 篇会再提一次。
 
 ### 2. 起后端
 
 ```bash
-export DEEPSEEK_API_KEY='...'
+export KB_CHAT_API_KEY='...'
 export KB_DB_PASSWORD='换成你自己的强密码'
 export DASHSCOPE_EMBEDDING_API_KEY='...'
 export DASHSCOPE_RERANK_API_KEY='...'

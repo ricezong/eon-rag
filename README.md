@@ -276,7 +276,7 @@ docker compose up -d --build
 | 变量 | 用途 |
 | :--- | :--- |
 | `KB_DB_PASSWORD` | 数据库密码，须与 5.2 中 `POSTGRES_PASSWORD` 一致 |
-| `DEEPSEEK_API_KEY` | 对话生成模型密钥（OpenAI 兼容协议） |
+| `KB_CHAT_API_KEY` | 对话生成模型密钥（OpenAI 兼容协议） |
 | `DASHSCOPE_EMBEDDING_API_KEY` | 百炼向量化密钥 |
 | `DASHSCOPE_RERANK_API_KEY` | 百炼重排密钥 |
 | `LLAMA_CLOUD_API_KEY` | 仅当 `LLAMA_CLOUD_ENABLED=true` 时必填 |
@@ -285,7 +285,7 @@ Linux / macOS：
 
 ```bash
 export KB_DB_PASSWORD='your-strong-password'
-export DEEPSEEK_API_KEY='sk-xxx'
+export KB_CHAT_API_KEY='sk-xxx'
 export DASHSCOPE_EMBEDDING_API_KEY='sk-xxx'
 export DASHSCOPE_RERANK_API_KEY='sk-xxx'
 
@@ -296,7 +296,7 @@ Windows（PowerShell）：
 
 ```powershell
 $env:KB_DB_PASSWORD='your-strong-password'
-$env:DEEPSEEK_API_KEY='sk-xxx'
+$env:KB_CHAT_API_KEY='sk-xxx'
 $env:DASHSCOPE_EMBEDDING_API_KEY='sk-xxx'
 $env:DASHSCOPE_RERANK_API_KEY='sk-xxx'
 
@@ -360,7 +360,7 @@ export KB_DB_PASSWORD='...'
 docker compose up -d --build
 
 # 2) 再起前后端（4 个模型 Key 同样要 export）
-export DEEPSEEK_API_KEY='...' DASHSCOPE_EMBEDDING_API_KEY='...' DASHSCOPE_RERANK_API_KEY='...'
+export KB_CHAT_API_KEY='...' DASHSCOPE_EMBEDDING_API_KEY='...' DASHSCOPE_RERANK_API_KEY='...'
 docker compose -f docker-compose.app.yml up -d --build
 ```
 
@@ -390,8 +390,8 @@ docker build -t eon-rag-web:1.0.0 .
 | `KB_DB_URL` | `jdbc:postgresql://127.0.0.1:15432/eon_rag` | 数据库连接串 |
 | `KB_DB_USERNAME` | `postgres` | 数据库用户 |
 | `KB_DB_PASSWORD` | 空（**必填**） | 数据库密码 |
-| `DEEPSEEK_API_KEY` | 空（**必填**） | 对话生成密钥 |
-| `DEEPSEEK_BASE_URL` | `https://api.xiaomimimo.com` | **不可带 `/v1`**，Spring AI 会自行拼接 |
+| `KB_CHAT_API_KEY` | 空（**必填**） | 对话生成密钥 |
+| `KB_CHAT_BASE_URL` | `https://api.xiaomimimo.com` | **不可带 `/v1`**，Spring AI 会自行拼接 |
 | `DASHSCOPE_EMBEDDING_API_KEY` | 空（**必填**） | 百炼向量化密钥 |
 | `DASHSCOPE_EMBEDDING_BASE_URL` | `https://dashscope.aliyuncs.com/compatible-mode` | 向量化端点 |
 | `DASHSCOPE_RERANK_API_KEY` | 空（**必填**） | 百炼重排密钥 |
@@ -416,7 +416,7 @@ docker build -t eon-rag-web:1.0.0 .
 kb:
   embedding:
     model: text-embedding-v4        # 百炼向量模型
-    dimensions: 1024                # 与 child_chunks.embedding vector(1024) 一致
+    dimensions: 1024                # 与 child_chunks.embedding vector(1024) 一致，改维度需同步改 001_schema.sql
     batch-size: 10                  # 百炼单批硬性上限，不可调大
   rerank:
     model: qwen3-rerank
@@ -713,7 +713,7 @@ pnpm probe:chat               # 仅探测 /api/chat 的 SSE 与引用数量
 
 | 现象 | 原因与处理 |
 | :--- | :--- |
-| 启动即抛 `XXX 未配置` | `StartupCredentialValidator` 的 Fail-Fast 校验。补齐 `DEEPSEEK_API_KEY`、`KB_DB_PASSWORD`、`DASHSCOPE_EMBEDDING_API_KEY`、`DASHSCOPE_RERANK_API_KEY`；启用云端解析时还需 `LLAMA_CLOUD_API_KEY` |
+| 启动即抛 `XXX 未配置` | `StartupCredentialValidator` 的 Fail-Fast 校验。补齐 `KB_CHAT_API_KEY`、`KB_DB_PASSWORD`、`DASHSCOPE_EMBEDDING_API_KEY`、`DASHSCOPE_RERANK_API_KEY`；启用云端解析时还需 `LLAMA_CLOUD_API_KEY` |
 | 数据库连接失败 | 确认 compose 已启动且端口为 `15432`；`KB_DB_PASSWORD` 与 `POSTGRES_PASSWORD` 一致 |
 | 请求全部 401 | 设置了 `KB_API_KEY`，需在请求头带 `X-API-Key`。`/actuator/**` 与 `OPTIONS` 不受影响 |
 
@@ -745,8 +745,8 @@ pnpm probe:chat               # 仅探测 /api/chat 的 SSE 与引用数量
 ### 10.4 其他注意事项
 
 - **重排与向量化端点前缀不同**：向量化 `.../compatible-mode`，重排 `.../compatible-api/v1`，不可混用。
-- **`DEEPSEEK_BASE_URL` 不要带 `/v1`**：Spring AI 会自行拼接 `/v1/chat/completions`，否则会产生 `/v1/v1/` 路径。
-- **向量维度固定 1024**：修改 `kb.embedding.dimensions` 必须同步修改 `child_chunks.embedding vector(1024)` 与已有索引。
+- **`KB_CHAT_BASE_URL` 不要带 `/v1`**：Spring AI 会自行拼接 `/v1/chat/completions`，否则会产生 `/v1/v1/` 路径。
+- **向量维度固定 1024**：`kb.embedding.dimensions` 与 `docker/init/001_schema.sql` 里的 `vector(1024)` 是两处硬约束，改维度要同时改这两处。init 脚本只在空数据卷执行，项目没有存量数据，改完 `docker compose down -v` 重建库即可。
 - **`batch-size` 不可调大**：百炼 `text-embedding-v4` 单批硬性上限为 10。
 - **开启上下文前缀增强会额外调用大模型**：`KB_CONTEXT_ENRICHMENT_ENABLED=true` 时摄入阶段对每个「父块无标题且以代词开头」的子块调用一次生成。
 - **临时文件**：摄入会把上传流转存到 `kb.ingest.temp-dir`（默认 `${java.io.tmpdir}/eon-rag`），任务结束后在 `finally` 中清理。
